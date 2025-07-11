@@ -5,7 +5,7 @@ const userSchema = new mongoose.Schema({
     email:{type:String, required:true},
     imageUrl:{type:String, required:true},
     enrolledCourses:[{
-        type:mongoose.Schema.types.ObjectId,
+       type: mongoose.Schema.Types.ObjectId,
         ref:'Course'
     }]
 },{timestamps:true});
