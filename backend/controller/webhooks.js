@@ -1,55 +1,75 @@
 import { Webhook } from "svix";
-
 import UserModel from "../models/user.js";
-// api controller function to manage clerk user with database//
-export const clerkWebhooks = async(req,res)=>{
+
+export const clerkWebhooks = async (req, res) => {
     try {
-        const whook = new Webhook(process.env.CLERK_WEBHOOK_SECRET)
-        await whook.verify(JSON.stringify(req.body),{
+        // 1. Verify webhook signature
+        const whook = new Webhook(process.env.CLERK_WEBHOOK_SECRET);
+        const payload = JSON.stringify(req.body);
+        const headers = {
             "svix-id": req.headers["svix-id"],
             "svix-timestamp": req.headers["svix-timestamp"],
             "svix-signature": req.headers["svix-signature"]
+        };
 
-        })
+        await whook.verify(payload, headers);
 
-        const{data,type} = req.body
+        // 2. Process webhook event
+        const { data, type } = req.body;
+
         switch (type) {
-            case 'user.created':{
-            const userData= {
-                _id:data.id, 
-                email:data.email_addresses[0].email_address,
-                name:data.first_name + " " + data.last_name,
-                imageUrl:data.image_url,
-
-            }
-            await UserModel.create(userData)
-                res.json({})
-                break;
-            }
-                
-                case 'user.updated':{
-                const userData= {
-                email:data.email_addresses[0].email_address,
-                name:data.first_name + " " + data.last_name,
-                imageUrl:data.image_url,
-
-            }
-            await UserModel.findByIdAndUpdate(data.id, userData)
-            res.json({})
-            break;
-                }
-        
-                case 'user.deleted':{
-                      await UserModel.findByIdAndDelete(data.id)
-                        res.json({})
-                        break
+            case 'user.created': {
+                // Validate required fields
+                if (!data.id || !data.email_addresses?.[0]?.email_address) {
+                    return res.status(400).json({ error: "Missing required user data" });
                 }
 
+                const userData = {
+                    _id: data.id,
+                    email: data.email_addresses[0].email_address,
+                    name: `${data.first_name || ''} ${data.last_name || ''}`.trim(),
+                    imageUrl: data.image_url || '',
+                    // Add any additional Clerk fields you need
+                    clerkData: {
+                        username: data.username,
+                        lastSignInAt: data.last_sign_in_at
+                    }
+                };
+
+                await UserModel.create(userData);
+                return res.status(201).json({ success: true });
+            }
+
+            case 'user.updated': {
+                const updateData = {
+                    email: data.email_addresses?.[0]?.email_address,
+                    name: `${data.first_name || ''} ${data.last_name || ''}`.trim(),
+                    imageUrl: data.image_url,
+                    updatedAt: new Date()
+                };
+
+                await UserModel.findByIdAndUpdate(
+                    data.id,
+                    { $set: updateData },
+                    { new: true, runValidators: true }
+                );
+                return res.status(200).json({ success: true });
+            }
+
+            case 'user.deleted': {
+                await UserModel.findByIdAndDelete(data.id);
+                return res.status(200).json({ success: true });
+            }
 
             default:
-                break;
+                return res.status(200).json({ success: true, msg: 'Unhandled event type' });
         }
+
     } catch (error) {
-        res.json({success:false, msg:error.message})
+        console.error('Webhook Error:', error);
+        return res.status(400).json({ 
+            success: false, 
+            error: error.message || 'Webhook processing failed' 
+        });
     }
-}
+};
