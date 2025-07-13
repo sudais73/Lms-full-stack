@@ -29,11 +29,8 @@ export const clerkWebhooks = async (req, res) => {
                     email: data.email_addresses[0].email_address,
                     name: `${data.first_name || ''} ${data.last_name || ''}`.trim(),
                     imageUrl: data.image_url || '',
-                    // Add any additional Clerk fields you need
-                    clerkData: {
-                        username: data.username,
-                        lastSignInAt: data.last_sign_in_at
-                    }
+                    
+                   
                 };
 
                 await UserModel.create(userData);
