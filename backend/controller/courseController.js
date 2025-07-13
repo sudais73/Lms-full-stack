@@ -18,7 +18,7 @@ export const getAllCourse= async(req,res)=>{
     const {id}= req.params
     try {
         const courseData = await Course.findById(id)
-        // remove lecture url if ispreview free is false//
+        // remove lecture url if isPreview free is false//
         courseData.courseContent.forEach(chapter=>{
             chapter.chapterContent.forEach(lecture=>{
                 if(!lecture.isPreviewFree){
